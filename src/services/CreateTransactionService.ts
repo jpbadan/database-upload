@@ -1,15 +1,18 @@
-import { getRepository } from 'typeorm';
-import { uuid } from 'uuidv4';
+import { getRepository, getCustomRepository } from 'typeorm';
+import AppError from '../errors/AppError';
 import Category from '../models/Category';
 // import AppError from '../errors/AppError';
 
+// [ ] - Verificar tipo e jogar erro caso n bata!
+
 import Transaction from '../models/Transaction';
+import TransactionsRepository from '../repositories/TransactionsRepository';
 
 interface TransactionRequest {
   title: string;
   type: 'income' | 'outcome';
   value: number;
-  category: string;
+  categoryTitle: string;
 }
 
 class CreateTransactionService {
@@ -17,21 +20,42 @@ class CreateTransactionService {
     title,
     value,
     type,
-    category,
+    categoryTitle,
   }: TransactionRequest): Promise<Transaction> {
+    // data validation
+    if (!['income', 'outcome'].includes(type)) {
+      throw new AppError("Wrong type. type must be 'income' or 'outcome'", 400);
+    }
+
+    // Creates a new transaction with the right category id
+    const transactionsRepository = getCustomRepository(TransactionsRepository);
     const categoriesRepository = getRepository(Category);
 
-    const categorie = categoriesRepository.create({
-      title: category,
+    // Verifies if user has a valid balance:
+    const { total } = await transactionsRepository.getBalance();
+
+    if (type === 'outcome' && value > total) {
+      throw new AppError('Insuficient Funds', 400);
+    }
+
+    // Verifies if category already exists and creates a new one if it is the case
+    let transactionCategory = await categoriesRepository.findOne({
+      where: { title: categoryTitle },
     });
-    await categoriesRepository.save(categorie);
 
-    const transactionsRepository = getRepository(Transaction);
+    if (!transactionCategory) {
+      transactionCategory = categoriesRepository.create({
+        title: categoryTitle,
+      });
+      await categoriesRepository.save(transactionCategory);
+    }
 
+    // Creates a new transaction with the right category id
     const transaction = transactionsRepository.create({
       title,
       value,
       type,
+      category: transactionCategory,
     });
 
     await transactionsRepository.save(transaction);
