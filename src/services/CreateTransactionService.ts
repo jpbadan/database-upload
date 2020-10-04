@@ -16,12 +16,10 @@ interface TransactionRequest {
 }
 
 class CreateTransactionService {
-  public async execute({
-    title,
-    value,
-    type,
-    categoryTitle,
-  }: TransactionRequest): Promise<Transaction> {
+  public async execute(
+    { title, value, type, categoryTitle }: TransactionRequest,
+    modeCsv = false,
+  ): Promise<Transaction> {
     // data validation
     if (!['income', 'outcome'].includes(type)) {
       throw new AppError("Wrong type. type must be 'income' or 'outcome'", 400);
@@ -34,7 +32,8 @@ class CreateTransactionService {
     // Verifies if user has a valid balance:
     const { total } = await transactionsRepository.getBalance();
 
-    if (type === 'outcome' && value > total) {
+    if (type === 'outcome' && value > total && modeCsv === false) {
+      // console.log('funds error');
       throw new AppError('Insuficient Funds', 400);
     }
 
