@@ -31,7 +31,7 @@ class Transaction {
   @CreateDateColumn()
   updated_at: Date;
 
-  @ManyToOne(() => Category)
+  @ManyToOne(() => Category, category => category.transaction, { eager: true })
   @JoinColumn({ name: 'category_id' }) // Which column identifies the category of this transaction
   category: Category;
 }
